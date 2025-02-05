@@ -130,31 +130,24 @@ impl Puzzle {
             }
         }
 
-        // TODO add error handling to this lol
         let mut starting_piece = pieces.get(&PieceType::Corner).unwrap().get(&Edge::Edge).unwrap()[0];
-        for &edge in &[starting_piece.up, starting_piece.right, starting_piece.down, starting_piece.left] {
-            pieces.entry(starting_piece.piece_type).or_default()
-                .entry(edge).or_default()
-                .retain(|&p| p != starting_piece);
-        }
-
         while starting_piece.up != Edge::Edge || starting_piece.left != Edge::Edge {
             starting_piece.rotate();
         }
 
-        // finished setting up
         let mut solutions: Vec<Vec<Piece>> = Vec::new();
-        let mut curr: Vec<Piece> = vec![starting_piece];
+        let mut curr: Vec<Piece> = Vec::new();
         let mut stack: Vec<Vec<Piece>> = vec![vec![starting_piece]];
 
         while !stack.is_empty() {
             if curr.len() == self.length * self.height {
                 solutions.push(curr.clone());
+                stack.pop();
             }
 
             let valid_pieces = stack.last_mut().unwrap();
 
-            if let Some(&piece) = valid_pieces.last() {
+            if let Some(piece) = valid_pieces.pop() {
                 for &edge in &[piece.up, piece.right, piece.down, piece.left] {
                     pieces.get_mut(&piece.piece_type).unwrap()
                         .get_mut(&edge).unwrap()
@@ -162,11 +155,11 @@ impl Puzzle {
                 }
 
                 curr.push(piece);
-                valid_pieces.pop();
 
                 stack.push(self.get_valid_next_pieces(&curr, &pieces).unwrap_or(Vec::new()));
             }
             else {
+                stack.pop();
                 let piece = curr.pop().unwrap();
                 let category = pieces.get_mut(&piece.piece_type).unwrap();
                 for &edge in &[piece.up, piece.right, piece.down, piece.left] {
@@ -208,7 +201,8 @@ impl Puzzle {
 
         let next_piece_type = self.get_piece_type_from_index(curr.len());
 
-        let potential_pieces = pieces.get(&next_piece_type)?.get(&left_target)?;
+        let cat = pieces.get(&next_piece_type).unwrap();
+        let potential_pieces = cat.get(&left_target).unwrap();
         for &piece in potential_pieces {
             let mut piece_copy = piece;
             for _ in 0..4 {

@@ -116,17 +116,16 @@ impl std::fmt::Debug for Puzzle {
 }
 
 impl Puzzle {
-    fn get_random(length: usize, height: usize) -> Self {
-        Self::default()
-    }
-
     fn get_solutions(&self) -> Vec<Puzzle> {
         let mut pieces: HashMap<PieceType, HashMap<Edge, Vec<Piece>>> = HashMap::new();
 
         for &piece in self.pieces.iter() {
             let category = pieces.entry(piece.piece_type).or_default();
             for &edge in &[piece.up, piece.right, piece.down, piece.left] {
-                category.entry(edge).or_default().push(piece);
+                let cat = category.entry(edge).or_default();
+                if !cat.contains(&piece) {
+                    cat.push(piece);
+                }
             }
         }
 
@@ -142,6 +141,8 @@ impl Puzzle {
         while !stack.is_empty() {
             if curr.len() == self.length * self.height {
                 solutions.push(curr.clone());
+
+                // NOTE might be a bug, but I don't think so
                 stack.pop();
             }
 
@@ -153,9 +154,7 @@ impl Puzzle {
                         .get_mut(&edge).unwrap()
                         .retain(|&p| p != piece);
                 }
-
                 curr.push(piece);
-
                 stack.push(self.get_valid_next_pieces(&curr, &pieces).unwrap_or(Vec::new()));
             }
             else {
@@ -201,8 +200,7 @@ impl Puzzle {
 
         let next_piece_type = self.get_piece_type_from_index(curr.len());
 
-        let cat = pieces.get(&next_piece_type).unwrap();
-        let potential_pieces = cat.get(&left_target).unwrap();
+        let potential_pieces = pieces.get(&next_piece_type).unwrap().get(&left_target).unwrap();
         for &piece in potential_pieces {
             let mut piece_copy = piece;
             for _ in 0..4 {
@@ -217,14 +215,11 @@ impl Puzzle {
                     continue;
                 }
 
-                // FIX pieces are being added to valid_pieces more than once, !.contains() is a
-                // band-aid fix for now
-                if !valid_pieces.contains(&piece_copy) { valid_pieces.push(piece_copy) };
+                valid_pieces.push(piece_copy);
             }
         }
 
         Some(valid_pieces)
-
     }
 
     fn get_piece_type_from_index(&self, index: usize) -> PieceType {
@@ -250,7 +245,6 @@ impl Puzzle {
         else {
             return PieceType::Inner;
         }
-        
     }
 
     fn shuffle(&mut self) -> &mut Self {

@@ -120,8 +120,7 @@ impl Puzzle {
         Self::default()
     }
 
-    fn get_solutions(&self) -> Option<Vec<Puzzle>> {
-        let mut solutions: Vec<Vec<Piece>> = Vec::new();
+    fn get_solutions(&self) -> Vec<Puzzle> {
         let mut pieces: HashMap<PieceType, HashMap<Edge, Vec<Piece>>> = HashMap::new();
 
         for &piece in self.pieces.iter() {
@@ -132,7 +131,7 @@ impl Puzzle {
         }
 
         // TODO add error handling to this lol
-        let mut starting_piece = pieces.get(&PieceType::Corner)?.get(&Edge::Edge)?[0];
+        let mut starting_piece = pieces.get(&PieceType::Corner).unwrap().get(&Edge::Edge).unwrap()[0];
         for &edge in &[starting_piece.up, starting_piece.right, starting_piece.down, starting_piece.left] {
             pieces.entry(starting_piece.piece_type).or_default()
                 .entry(edge).or_default()
@@ -143,31 +142,53 @@ impl Puzzle {
             starting_piece.rotate();
         }
 
-        self.rec_solve(&mut solutions, &mut pieces, &mut vec![starting_piece]);
+        // finished setting up
+        let mut solutions: Vec<Vec<Piece>> = Vec::new();
+        let mut curr: Vec<Piece> = vec![starting_piece];
+        let mut stack: Vec<Vec<Piece>> = vec![vec![starting_piece]];
 
-        Some(solutions.into_iter().map(|solution| {
+        while !stack.is_empty() {
+            if curr.len() == self.length * self.height {
+                solutions.push(curr.clone());
+            }
+
+            let valid_pieces = stack.last_mut().unwrap();
+
+            if let Some(&piece) = valid_pieces.last() {
+                for &edge in &[piece.up, piece.right, piece.down, piece.left] {
+                    pieces.get_mut(&piece.piece_type).unwrap()
+                        .get_mut(&edge).unwrap()
+                        .retain(|&p| p != piece);
+                }
+
+                curr.push(piece);
+                valid_pieces.pop();
+
+                stack.push(self.get_valid_next_pieces(&curr, &pieces).unwrap_or(Vec::new()));
+            }
+            else {
+                let piece = curr.pop().unwrap();
+                let category = pieces.get_mut(&piece.piece_type).unwrap();
+                for &edge in &[piece.up, piece.right, piece.down, piece.left] {
+                    category.get_mut(&edge).unwrap().push(piece);
+                }
+            }
+        }
+
+        solutions.into_iter().map(|solution| {
             Puzzle {
                 length: self.length,
                 height: self.height,
                 pieces: solution,
             }
-        }).collect::<Vec<Puzzle>>())
+        }).collect::<Vec<Puzzle>>()
     }
 
-    // TODO use a simple loop instead of recursion for optimization
-    fn rec_solve(
-        &self, 
-        solutions: &mut Vec<Vec<Piece>>, 
-        pieces: &mut HashMap<PieceType, HashMap<Edge, Vec<Piece>>>, 
-        curr: &mut Vec<Piece>
-    ) {
-        if curr.len() == self.length * self.height {
-            solutions.push(curr.clone());
-            return;
-        }
-
-        let next_piece_type = self.get_piece_type_from_index(curr.len());
-
+    fn get_valid_next_pieces(
+        &self,
+        curr: &Vec<Piece>, 
+        pieces: &HashMap<PieceType, HashMap<Edge, Vec<Piece>>>,
+    ) -> Option<Vec<Piece>> {
         let mut above_target = None;
         if curr.len() >= self.length {
             above_target = match curr[curr.len() - self.length].down {
@@ -185,7 +206,9 @@ impl Puzzle {
 
         let mut valid_pieces = Vec::new();
 
-        let potential_pieces = pieces.get(&next_piece_type).unwrap().get(&left_target).unwrap();
+        let next_piece_type = self.get_piece_type_from_index(curr.len());
+
+        let potential_pieces = pieces.get(&next_piece_type)?.get(&left_target)?;
         for &piece in potential_pieces {
             let mut piece_copy = piece;
             for _ in 0..4 {
@@ -206,25 +229,8 @@ impl Puzzle {
             }
         }
 
-        for piece in valid_pieces {
-            for &edge in &[piece.up, piece.right, piece.down, piece.left] {
-                pieces.get_mut(&piece.piece_type).unwrap()
-                    .get_mut(&edge).unwrap()
-                    .retain(|&p| p != piece);
-            }
-            curr.push(piece);
+        Some(valid_pieces)
 
-            self.rec_solve(solutions, pieces, curr);
-            if curr.len() > 10 {
-                return;
-            }
-
-            curr.pop();
-            let category = pieces.get_mut(&piece.piece_type).unwrap();
-            for &edge in &[piece.up, piece.right, piece.down, piece.left] {
-                category.get_mut(&edge).unwrap().push(piece);
-            }
-        }
     }
 
     fn get_piece_type_from_index(&self, index: usize) -> PieceType {
@@ -277,9 +283,8 @@ fn main() {
     println!("--------------------------------");
     println!("Shuffled:\n{:?}", puzzle.shuffle());
     println!("--------------------------------");
-    if let Some(solutions) = puzzle.get_solutions() {
-        for (i, p) in solutions.iter().enumerate() {
-            println!("Solution: {}\n{:?}\n--------------------------------", i + 1, p);
-        }
+    let solutions = puzzle.get_solutions();
+    for (i, p) in solutions.iter().enumerate() {
+        println!("Solution: {}\n{:?}\n--------------------------------", i + 1, p);
     }
 }

@@ -1,14 +1,32 @@
 use rand::{Rng, seq::SliceRandom};
+use rand::prelude::IndexedRandom;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Edge {
-    Innie(u32),
-    Outie(u32),
+    Innie(usize),
+    Outie(usize),
     Edge,
 }
 
 impl Edge {
+    fn random(start: usize, end: usize) -> Self {
+        let mut rng = rand::rng();
+        let options = vec![
+            Edge::Innie(rng.random_range(start..end)),
+            Edge::Outie(rng.random_range(start..end)),
+        ];
+        *options.choose(&mut rng).unwrap()
+    }
+
+    fn inverse(&self) -> Self {
+        match &self {
+            Edge::Innie(val) => Edge::Outie(*val),
+            Edge::Outie(val) => Edge::Innie(*val),
+            Edge::Edge => Edge::Edge,
+        }
+    }
+
     fn get_debug_format(&self) -> String {
         match self {
             Edge::Edge => format!("E"),
@@ -40,6 +58,30 @@ impl Piece {
         swap(&mut self.up, &mut self.right);
         swap(&mut self.right, &mut self.down);
         swap(&mut self.down, &mut self.left);
+    }
+}
+
+impl Piece {
+    fn new(up: Edge, right: Edge, down: Edge, left: Edge) -> Self {
+        let mut edge_count = 0;
+        for &edge in &[up, right, down, left] {
+            if edge == Edge::Edge {
+                edge_count += 1;
+            }
+        }
+
+        Self {
+            up,
+            right,
+            down,
+            left,
+            piece_type: match edge_count {
+                0 => PieceType::Inner,
+                1 => PieceType::Edge,
+                2 => PieceType::Corner,
+                _ => panic!("Piece was generated with more than 2 Edges"),
+            }
+        }
     }
 }
 
@@ -76,9 +118,9 @@ impl Default for Puzzle {
             length: 3,
             height: 3,
             pieces: vec![
-                Piece{up: Edge::Edge,     right: Edge::Outie(1),  down: Edge::Innie(8), left: Edge::Edge, piece_type: PieceType::Corner}, Piece{up: Edge::Edge,      right: Edge::Outie(2),  down: Edge::Outie(10), left: Edge::Innie(1),  piece_type: PieceType::Edge},  Piece{up: Edge::Edge,     right: Edge::Edge, down: Edge::Outie(3), left: Edge::Innie(2),  piece_type: PieceType::Corner},
-                Piece{up: Edge::Outie(8), right: Edge::Outie(12), down: Edge::Innie(7), left: Edge::Edge, piece_type: PieceType::Edge},   Piece{up: Edge::Innie(10), right: Edge::Outie(13), down: Edge::Outie(11), left: Edge::Innie(12), piece_type: PieceType::Inner}, Piece{up: Edge::Innie(3), right: Edge::Edge, down: Edge::Outie(4), left: Edge::Innie(13), piece_type: PieceType::Edge},
-                Piece{up: Edge::Outie(7), right: Edge::Innie(6),  down: Edge::Edge,     left: Edge::Edge, piece_type: PieceType::Corner}, Piece{up: Edge::Innie(11), right: Edge::Innie(5),  down: Edge::Edge,      left: Edge::Outie(6),  piece_type: PieceType::Edge},  Piece{up: Edge::Innie(4), right: Edge::Edge, down: Edge::Edge,     left: Edge::Outie(5),  piece_type: PieceType::Corner},
+                Piece::new(Edge::Edge,     Edge::Outie(1),  Edge::Innie(8), Edge::Edge), Piece::new(Edge::Edge,      Edge::Outie(2),  Edge::Outie(10), Edge::Innie(1)),  Piece::new(Edge::Edge,     Edge::Edge, Edge::Outie(3), Edge::Innie(2)),
+                Piece::new(Edge::Outie(8), Edge::Outie(12), Edge::Innie(7), Edge::Edge), Piece::new(Edge::Innie(10), Edge::Outie(13), Edge::Outie(11), Edge::Innie(12)), Piece::new(Edge::Innie(3), Edge::Edge, Edge::Outie(4), Edge::Innie(13)),
+                Piece::new(Edge::Outie(7), Edge::Innie(6),  Edge::Edge,     Edge::Edge), Piece::new(Edge::Innie(11), Edge::Innie(5),  Edge::Edge,      Edge::Outie(6)),  Piece::new(Edge::Innie(4), Edge::Edge, Edge::Edge,     Edge::Outie(5)),
             ]
         }
     }
@@ -116,7 +158,56 @@ impl std::fmt::Debug for Puzzle {
 }
 
 impl Puzzle {
-    fn get_solutions(&self) -> Vec<Puzzle> {
+    fn get_random(length: usize, height: usize, total_shapes: usize) -> Self {
+        const UP: usize = 0;
+        const RIGHT: usize = 1;
+        const DOWN: usize = 2;
+        const LEFT: usize = 3;
+        let mut puzzle: Vec<[Option<Edge>; 4]> = vec![[None; 4]; length * height];
+
+        for (i, piece) in puzzle.iter_mut().enumerate() {
+            if i < length {
+                piece[UP] = Some(Edge::Edge);
+            }
+            if (i + 1) % length == 0 {
+                piece[RIGHT] = Some(Edge::Edge);
+            }
+            if i >= length * (height - 1) {
+                piece[DOWN] = Some(Edge::Edge);
+            }
+            if i % length == 0 {
+                piece[LEFT] = Some(Edge::Edge);
+            }
+        }
+
+        for i in 0..puzzle.len() {
+            if let None = puzzle[i][UP] {
+                let edge = Edge::random(0, total_shapes);
+                puzzle[i][UP] = Some(edge);
+                puzzle[i - length][DOWN] = Some(edge.inverse());
+            }
+            if let None = puzzle[i][RIGHT] {
+                let edge = Edge::random(0, total_shapes);
+                puzzle[i][RIGHT] = Some(edge);
+                puzzle[i + 1][LEFT] = Some(edge.inverse());
+            }
+        }
+
+        Self {
+            length,
+            height,
+            pieces: puzzle.iter().map(|&piece|
+                Piece::new(
+                    piece[UP].unwrap(),
+                    piece[RIGHT].unwrap(),
+                    piece[DOWN].unwrap(),
+                    piece[LEFT].unwrap(),
+                )
+            ).collect(),
+        }
+    }
+
+    fn get_solutions(&self, max_solutions: usize) -> Vec<Puzzle> {
         let mut pieces: HashMap<PieceType, HashMap<Edge, Vec<Piece>>> = HashMap::new();
 
         for &piece in self.pieces.iter() {
@@ -139,10 +230,14 @@ impl Puzzle {
         let mut stack: Vec<Vec<Piece>> = vec![vec![starting_piece]];
 
         while !stack.is_empty() {
+            if solutions.len() >= max_solutions {
+                break;
+            }
+
             if curr.len() == self.length * self.height {
                 solutions.push(curr.clone());
 
-                // NOTE might be a bug, but I don't think so
+                // NOTE pop might cause a bug, but I don't think so
                 stack.pop();
             }
 
@@ -183,24 +278,16 @@ impl Puzzle {
     ) -> Option<Vec<Piece>> {
         let mut above_target = None;
         if curr.len() >= self.length {
-            above_target = match curr[curr.len() - self.length].down {
-                Edge::Innie(val) => Some(Edge::Outie(val)),
-                Edge::Outie(val) => Some(Edge::Innie(val)),
-                Edge::Edge =>       Some(Edge::Edge),
-            };
+            above_target = Some(curr[curr.len() - self.length].down.inverse());
         }
 
-        let left_target = match curr.last().unwrap().right {
-            Edge::Innie(val) => Edge::Outie(val),
-            Edge::Outie(val) => Edge::Innie(val),
-            Edge::Edge       => Edge::Edge,
-        };
+        let left_target = curr.last().unwrap().right.inverse();
 
         let mut valid_pieces = Vec::new();
 
         let next_piece_type = self.get_piece_type_from_index(curr.len());
 
-        let potential_pieces = pieces.get(&next_piece_type).unwrap().get(&left_target).unwrap();
+        let potential_pieces = pieces.get(&next_piece_type)?.get(&left_target)?;
         for &piece in potential_pieces {
             let mut piece_copy = piece;
             for _ in 0..4 {
@@ -263,16 +350,65 @@ impl Puzzle {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_get_piece_type_from_index() {
+        let puzzle1 = Puzzle {
+            length: 3,
+            height: 3,
+            pieces: Vec::new(),
+        };
+        assert_eq!(puzzle1.get_piece_type_from_index(5), PieceType::Edge);
+        assert_eq!(puzzle1.get_piece_type_from_index(0), PieceType::Corner);
+        assert_eq!(puzzle1.get_piece_type_from_index(4), PieceType::Inner);
+
+        let puzzle2 = Puzzle {
+            length: 100,
+            height: 100,
+            pieces: Vec::new(),
+        };
+        assert_eq!(puzzle2.get_piece_type_from_index(0), PieceType::Corner);
+        assert_eq!(puzzle2.get_piece_type_from_index(5), PieceType::Edge);
+        assert_eq!(puzzle2.get_piece_type_from_index(101), PieceType::Inner);
+        assert_eq!(puzzle2.get_piece_type_from_index(9999), PieceType::Corner);
+        assert_eq!(puzzle2.get_piece_type_from_index(9988), PieceType::Edge);
+    }
+
+    #[test]
+    fn test_get_solutions() {
+        let mut puzzle = Puzzle::get_random(5, 5, 10);
+        for _ in 0..1000 {
+            let solutions = puzzle.shuffle().get_solutions(10);
+            for puzzle in solutions {
+                for (i, &piece) in puzzle.pieces.iter().enumerate() {
+                    if i > puzzle.length {
+                        assert_eq!(puzzle.pieces[i - puzzle.length].down, piece.up.inverse());
+                    }
+
+                    if i > 0 {
+                        assert_eq!(puzzle.pieces[i - 1].right, piece.left.inverse());
+                    }
+                }
+            }
+        }
+    }
+}
+    
+
 fn main() {
-    let mut puzzle = Puzzle::default();
+    let mut puzzle = Puzzle::get_random(2, 2, 10);
 
     println!("--------------------------------");
     println!("Start:\n{:?}", puzzle);
     println!("--------------------------------");
+    for _ in 0..1000 {
     println!("Shuffled:\n{:?}", puzzle.shuffle());
     println!("--------------------------------");
-    let solutions = puzzle.get_solutions();
+    let solutions = puzzle.get_solutions(3);
     for (i, p) in solutions.iter().enumerate() {
         println!("Solution: {}\n{:?}\n--------------------------------", i + 1, p);
+    }
     }
 }

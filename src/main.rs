@@ -34,8 +34,8 @@ fn get_avg(args: &Vec<Argument>) {
 
     let mut s = Vec::new();
     for i in 0..number_of_puzzles {
-        let mut puzzle = Puzzle::get_random(length, height, max_shapes);
-        let solutions = puzzle.shuffle().get_solutions(total_solutions);
+        let puzzle = Puzzle::get_random(length, height, max_shapes);
+        let solutions = puzzle.get_solutions(total_solutions);
         s.push(solutions.len());
 
         print!("\rProgress: {:>7}/{} : {:>5.2}%",i, number_of_puzzles, i as f32 / number_of_puzzles as f32 * 100.0);
@@ -43,8 +43,31 @@ fn get_avg(args: &Vec<Argument>) {
     println!("\rProgress:{:>7}/{} : 100.00%\nAverage solutions with at most {} unique shapes across {} puzzles: {}", number_of_puzzles, number_of_puzzles, max_shapes, number_of_puzzles, s.iter().sum::<usize>() as f32 / s.len() as f32);
 }
 
-fn two_solutions(_args: &Vec<Argument>) {
-    eprintln!("Not Implemented: twosolutions");
+fn two_solutions(args: &Vec<Argument>) {
+    let mut number_of_puzzles = 1000;
+    let mut length = 5;
+    let mut height = 5;
+    let mut max_shapes = 10;
+    let mut total_solutions = 10;
+
+    for arg in args {
+        match arg {
+            Argument::Length(val) => length = *val,
+            Argument::Height(val) => height = *val,
+            Argument::MaxShapes(val) => max_shapes = *val,
+            Argument::PuzzleNumber(val) => number_of_puzzles = *val,
+            Argument::TotalSolutions(val) => total_solutions = *val,
+        }
+    }
+    for _ in 0..number_of_puzzles {
+        let puzzle = Puzzle::get_random(length, height, max_shapes);
+        let solutions = puzzle.get_solutions(total_solutions);
+        if solutions.len() == 2 {
+            for (i, solution) in solutions.iter().enumerate() {
+                println!("Solution {}:\n{:?}", i + 1, solution);
+            }
+        }
+    }
 }
 
 fn display_help_info() {
@@ -142,7 +165,7 @@ fn main() {
                     std::process::exit(1);
                 }
             }
-            "--total-solutions" | "-t" => {
+            "--max-solutions" | "-S" => {
                 if let Some(val) = args.next() {
                     if let Ok(num) = val.parse::<usize>() {
                         context.push(Argument::TotalSolutions(num));

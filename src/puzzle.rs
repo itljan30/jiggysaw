@@ -408,11 +408,3 @@ mod tests {
         }
     }
 }
-
-// pub fn calculate_similarity(puzzle1: &Puzzle, puzzle2: &Puzzle) -> u32 {
-//     let mut score = 0;
-//
-//
-//
-//     score
-// }

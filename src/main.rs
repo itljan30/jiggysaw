@@ -50,7 +50,7 @@ fn two_solutions(_args: &Vec<Argument>) {
 fn display_help_info() {
     eprintln!("Commands:
     average              => Generates puzzles and calculates the average number of solutions per puzzle
-    twosolutions(TODO)   => Generates puzzles and writes all that are below with only two unique solutions
+    twosolutions         => Generates puzzles and writes all that are below with only two unique solutions
                                 and is below the similarity threshold to a file(TODO add a default file)
 Options: 
     --help          | -h => Displays this help page
@@ -59,8 +59,7 @@ Options:
     --height        | -y => Sets the height of the puzzles generated
     --max-shapes    | -s => Sets the maximum amount of unique shapes per puzzle
     --max-solutions | -S => Sets the max number of solutions it will search for
-    --puzzle-count  | -p => Sets the number of puzzles generated
-    --file(TODO)    | -f => Sets the file jiggysaw will write to")
+    --puzzle-count  | -p => Sets the number of puzzles generated")
 }
 
 fn display_version_info() {

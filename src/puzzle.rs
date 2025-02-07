@@ -1,4 +1,4 @@
-use rand::{Rng, seq::SliceRandom};
+use rand::Rng;
 use rand::prelude::IndexedRandom;
 use std::collections::HashMap;
 
@@ -347,21 +347,6 @@ impl Puzzle {
             return PieceType::Inner;
         }
     }
-
-    pub fn shuffle(&mut self) -> &mut Self {
-        let mut rng = rand::rng();
-
-        self.pieces.shuffle(&mut rng);
-
-        for piece in &mut self.pieces {
-            let rotations = rng.random_range(0..4);
-            for _ in 0..rotations {
-                piece.rotate();
-            }
-        }
-
-        self
-    }
 }
 
 #[cfg(test)]
@@ -393,8 +378,8 @@ mod tests {
     #[test]
     fn test_get_solutions() {
         for _ in 0..1000 {
-            let mut puzzle = Puzzle::get_random(5, 5, 20);
-            let solutions = puzzle.shuffle().get_solutions(10);
+            let puzzle = Puzzle::get_random(5, 5, 20);
+            let solutions = puzzle.get_solutions(10);
             for puzzle in solutions {
                 for (i, &piece) in puzzle.pieces.iter().enumerate() {
                     if i > puzzle.length {

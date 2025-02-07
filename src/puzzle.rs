@@ -229,8 +229,6 @@ impl Puzzle {
         let mut curr: Vec<Piece> = Vec::new();
         let mut stack: Vec<Vec<Piece>> = vec![vec![starting_piece]];
 
-        // BUG sometimes pieces have impossible orientations in outer ring for example, the
-        // and edge piece with the edge pointing somewhere other than outwards
         loop {
             if solutions.len() >= max_solutions {
                 break;

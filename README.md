@@ -9,7 +9,7 @@ I started programming in April 2024 and I'm proud of how much I've been able to 
 ## Installation
 1. Clone the repository:
 ```sh
-git clone https://github.com/itljan30/jiggysaw
+git clone https://github.com/itljan30/jiggysaw --branch release/v0.1.0
 cd jiggysaw
 ```
 2. Build the program:
